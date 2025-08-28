@@ -1,0 +1,16 @@
+manipular a tensao para que o circutio tenha um comportamento adequado para o que nos queremos
+
+circuitos combinatorios_ somadores ect... subistituido pela logica programavel micro controlador
+
+principal no micro controlador = ram e micro processador e rom
+
+micro processador vai a rom buscar as instruçoes por linha 0 1 2 ....
+
+learnc.org + lusi damas 
+
+1 saber definir variaveis (muito importante)
+
+2
+	
+
+
