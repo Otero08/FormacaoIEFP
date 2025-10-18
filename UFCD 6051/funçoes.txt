@@ -1,0 +1,66 @@
+exemplo
+void ligar_semaforo1_vermelho()				//tipo de retorno. nome da funçao. (parametro de entrada)
+{
+//aqui funçao exemplo
+	digitalWrite(ledsem1_vermelho, HIGH); //colocar a 5V o periferico
+	digitalWrite(ledsem1_amarelo, LOW);//colocar a 0V o periferico	
+	digitalWrite(ledsem1_verde, LOW);//colocar a 0V o periferico
+}
+
+
+experiencia
+void ligar_sem1_vermelho_sem2_verde()				//tipo de retorno. nome da funçao. (parametro de entrada)
+{
+//aqui funçao exemplo
+	digitalWrite(ledsem1_vermelho, HIGH); //colocar a 5V o periferico
+	digitalWrite(ledsem1_amarelo, LOW);//colocar a 0V o periferico	
+	digitalWrite(ledsem1_verde, LOW);//colocar a 0V o periferico
+//segundo semaforo
+	digitalWrite(ledsem2_verde, HIGH);
+	digitalWrite(ledsem1_amarelo, LOW);
+	digitalWrite(ledsem1_vermelho, LOW);///////
+}
+void ligar_sem1_vermelho_sem2_amarelo()				//tipo de retorno. nome da funçao. (parametro de entrada)
+{
+//aqui funçao exemplo
+	digitalWrite(ledsem1_vermelho, HIGH); //colocar a 5V o periferico
+	digitalWrite(ledsem1_amarelo, LOW);//colocar a 0V o periferico	
+	digitalWrite(ledsem1_verde, LOW);//colocar a 0V o periferico
+//segundo semaforo
+	digitalWrite(ledsem2_verde, LOW);
+	digitalWrite(ledsem1_amarelo, HIGH);
+	digitalWrite(ledsem1_vermelho, LOW);
+}
+void ligar_sem1_verde_sem2_vermelho()				//tipo de retorno. nome da funçao. (parametro de entrada)
+{
+//aqui funçao exemplo
+	digitalWrite(ledsem1_vermelho, LOW); //colocar a 5V o periferico
+	digitalWrite(ledsem1_amarelo, LOw);//colocar a 0V o periferico	
+	digitalWrite(ledsem1_verde, HIGH;//colocar a 0V o periferico
+//segundo semaforo
+	digitalWrite(ledsem2_verde, LOW);
+	digitalWrite(ledsem1_amarelo, LOW);
+	digitalWrite(ledsem1_vermelho, HIGH);
+void ligar_sem1_amarelo_sem2_verde()				//tipo de retorno. nome da funçao. (parametro de entrada)
+{
+//aqui funçao exemplo
+	digitalWrite(ledsem1_vermelho, LOW); //colocar a 5V o periferico
+	digitalWrite(ledsem1_amarelo, HIGH);//colocar a 0V o periferico	
+	digitalWrite(ledsem1_verde, LOW);//colocar a 0V o periferico
+//segundo semaforo
+	digitalWrite(ledsem2_verde, HIGH);
+	digitalWrite(ledsem1_amarelo, LOW);
+	digitalWrite(ledsem1_vermelho, LOW);
+
+
+yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+
+
+
+
+
+
+
+
+
+

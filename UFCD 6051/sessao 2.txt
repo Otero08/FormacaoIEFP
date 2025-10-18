@@ -1,0 +1,23 @@
+int --> long (unsigned para tirar os negativos)
+
+float--> ou double
+char-->
+
+int temperatura_sensor = 0;
+void setup ()
+{
+
+(//config de analogico ex)
+
+}
+
+
+void loop ()
+{(atençao ao temporizador)
+temperatura_sensor = analogRead();
+
+}
+
+
+
+
