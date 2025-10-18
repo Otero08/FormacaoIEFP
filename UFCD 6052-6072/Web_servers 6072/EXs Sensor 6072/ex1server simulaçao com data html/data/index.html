@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercício</title>
+    <style>
+        html {
+            font-family: Helvetica;
+            /* display: center; */ /* Nota: 'center' não é um valor válido para 'display'. */
+            margin: 300px auto;
+            text-align: center;
+        }
+        body {
+    background-image: url('https://www.atec.pt/images/stories/noticias/2013/Descentralizadas/Logo_IEFP_Horizontal_1_c.jpg');
+    background-size: cover;
+    /* Alteração aqui: 'left' para horizontal, 'bottom 150px' para vertical */
+    background-position: left bottom 250px;
+    background-repeat: no-repeat;
+    margin: -5px;
+    padding: 15px;
+}
+        .button {
+            background-color: rgb(210, 8, 8);
+            border: 3px solid black;
+            color: white;
+            padding: 16px 40px;
+            text-decoration: none;
+            font-size: 30px;
+            margin: 2px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .button2 {
+            background-color: rgb(54, 12, 205);
+        }
+    </style>
+</head>
+<body>
+    <h1>Diogo Otero ------ ESP32 Web Server</h1>
+    <p><a href="/26/on"><button class="button" id="button1">ON</button></a></p>
+    <p><a href="/27/on"><button class="button button2" id="button2">ON</button></a></p>
+</body>
+<script>
+    const button1 = document.getElementById('button1');
+    const button2 = document.getElementById('button2');
+
+    function changeBackgroundColor(event) {
+        if (event.target.id === 'button1') {
+            event.target.style.backgroundColor = 'rgb(255, 60, 60)';
+        } else if (event.target.id === 'button2') {
+            event.target.style.backgroundColor = 'rgb(90, 100, 255)';
+        }
+    }
+
+    function restoreBackgroundColor(event) {
+        if (event.target.id === 'button1') {
+            event.target.style.backgroundColor = 'rgb(210, 8, 8)';
+        } else if (event.target.id === 'button2') {
+            event.target.style.backgroundColor = 'rgb(54, 12, 205)';
+        }
+    }
+
+    if (button1) {
+        button1.addEventListener('mouseover', changeBackgroundColor);
+        button1.addEventListener('mouseout', restoreBackgroundColor);
+    }
+
+    if (button2) {
+        button2.addEventListener('mouseover', changeBackgroundColor);
+        button2.addEventListener('mouseout', restoreBackgroundColor);
+    }
+</script>
+</html>

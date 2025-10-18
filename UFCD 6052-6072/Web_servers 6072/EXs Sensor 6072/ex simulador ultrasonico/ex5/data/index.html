@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor de Distância - Simulação</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+            text-align: center;
+        }
+
+        .container {
+            background-color: #fff;
+            margin: 40px auto;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        .data-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+
+        .data-section h2 {
+            color: #3498db;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        #lastReading {
+            font-size: 3.5em; /* Destacado */
+            font-weight: bold;
+            color: #e74c3c; /* Vermelho vibrante */
+            margin: 10px 0;
+            display: block; /* Para ocupar a linha inteira */
+        }
+
+        .unit {
+            font-size: 0.6em;
+            color: #777;
+            vertical-align: super;
+        }
+
+        .readings-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 15px;
+            max-height: 150px; /* Limita a altura para rolagem se houver muitas leituras */
+            overflow-y: auto; /* Adiciona barra de rolagem vertical */
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+
+        .readings-list li {
+            padding: 8px 15px;
+            border-bottom: 1px dashed #eee;
+            color: #555;
+            font-size: 0.95em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .readings-list li:last-child {
+            border-bottom: none;
+        }
+
+        .timestamp {
+            font-size: 0.8em;
+            color: #999;
+        }
+
+        #averageReading {
+            font-size: 2em;
+            font-weight: bold;
+            color: #27ae60; /* Verde */
+            margin: 15px 0;
+            display: block;
+        }
+
+        footer {
+            margin-top: 50px;
+            font-size: 0.8em;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Monitor de Distância</h1>
+
+        <div class="data-section">
+            <h2>Última Leitura</h2>
+            <span id="lastReading">-- <span class="unit">cm</span></span>
+        </div>
+
+        <div class="data-section">
+            <h2>Últimas 5 Leituras</h2>
+            <ul id="recentReadings" class="readings-list">
+                <li>Aguardando leituras...</li>
+            </ul>
+        </div>
+
+        <div class="data-section">
+            <h2>Média das Últimas 10 Leituras</h2>
+            <span id="averageReading">-- <span class="unit">cm</span></span>
+        </div>
+    </div>
+
+    <footer>Simulação de Sensor Ultrassónico - Desenvolvido por Diogo Otero</footer>
+
+    <script>
+        const lastReadingSpan = document.getElementById('lastReading');
+        const recentReadingsList = document.getElementById('recentReadings');
+        const averageReadingSpan = document.getElementById('averageReading');
+
+        // Array para armazenar todas as leituras, mantendo as últimas 10 para a média
+        const allReadings = [];
+        const MAX_READINGS_FOR_AVERAGE = 10;
+        const MAX_READINGS_FOR_DISPLAY = 5;
+
+        // Função para simular a leitura do sensor
+        function simulateSensorReading() {
+            // Gera um valor de distância aleatório entre 10 e 200 cm
+            const simulatedDistance = Math.floor(Math.random() * 191) + 10; // Entre 10 e 200
+            const timestamp = new Date().toLocaleTimeString();
+
+            // Adiciona a nova leitura ao array
+            allReadings.push({ value: simulatedDistance, time: timestamp });
+
+            // Mantém o array com no máximo MAX_READINGS_FOR_AVERAGE leituras
+            if (allReadings.length > MAX_READINGS_FOR_AVERAGE) {
+                allReadings.shift(); // Remove a leitura mais antiga
+            }
+
+            // Atualiza a última leitura destacada
+            lastReadingSpan.innerHTML = `${simulatedDistance} <span class="unit">cm</span>`;
+
+            // Atualiza a lista das últimas N leituras
+            updateRecentReadingsDisplay();
+
+            // Calcula e atualiza a média das últimas 10 leituras
+            updateAverageReadingDisplay();
+        }
+
+        // Função para atualizar a lista das últimas N leituras na interface
+        function updateRecentReadingsDisplay() {
+            recentReadingsList.innerHTML = ''; // Limpa a lista existente
+
+            // Pega as últimas MAX_READINGS_FOR_DISPLAY leituras
+            const readingsToDisplay = allReadings.slice(-MAX_READINGS_FOR_DISPLAY).reverse(); // Inverte para mostrar a mais recente primeiro
+
+            if (readingsToDisplay.length === 0) {
+                recentReadingsList.innerHTML = '<li>Aguardando leituras...</li>';
+                return;
+            }
+
+            readingsToDisplay.forEach(reading => {
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `Distância: <strong>${reading.value} <span class="unit">cm</span></strong> <span class="timestamp">(${reading.time})</span>`;
+                recentReadingsList.appendChild(listItem);
+            });
+        }
+
+        // Função para calcular e exibir a média
+        function updateAverageReadingDisplay() {
+            if (allReadings.length === 0) {
+                averageReadingSpan.innerHTML = `-- <span class="unit">cm</span>`;
+                return;
+            }
+
+            // Calcula a soma de todas as leituras no array
+            const sum = allReadings.reduce((total, reading) => total + reading.value, 0);
+            // Calcula a média
+            const average = (sum / allReadings.length).toFixed(1); // Arredonda para uma casa decimal
+
+            averageReadingSpan.innerHTML = `${average} <span class="unit">cm</span>`;
+        }
+
+        // --- Inicialização ---
+        // Simula a primeira leitura imediatamente para preencher a interface
+        simulateSensorReading();
+
+        // Configura para simular uma leitura a cada 3 segundos
+        setInterval(simulateSensorReading, 3000); // 3000 milissegundos = 3 segundos
+    </script>
+</body>
+</html>

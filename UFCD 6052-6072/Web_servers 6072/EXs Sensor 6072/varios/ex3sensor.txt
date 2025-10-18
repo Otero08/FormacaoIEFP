@@ -1,0 +1,168 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <DHT.h>       // Inclui a biblioteca do sensor DHT
+#include <DHT_U.h>     // Inclui a parte unificada do DHT (para Adafruit), necessário para DHT.h
+
+// Substitua pelas suas credenciais de rede Wi-Fi
+const char* ssid = "IEFP-Formacao"; // <<<<<<<<<<<<< Mude para o nome da sua rede WiFi
+const char* password = ""; // <<<<<<<<<<<<< Mude para a senha da sua rede WiFi (deixe vazio "" se não tiver senha)
+
+// --- Pinos GPIO para o Sensor Ultrassónico HC-SR04 ---
+// Conforme o seu diagrama de pinos:
+// GPIO 4 é o pino "4" no lado direito.
+// GPIO 12 é o pino "12" no lado direito.
+const int TRIG_PIN = 4;   // Pino TRIG do sensor HC-SR04 -> GPIO 4 do ESP32
+const int ECHO_PIN = 12;  // Pino ECHO do sensor HC-SR04 -> GPIO 12 do ESP32 (ATENÇÃO: COM DIVISOR DE TENSÃO!)
+
+// --- Pinos GPIO para o Sensor de Temperatura e Humidade DHT11 ---
+// IMPORTANTE: O GPIO 39 é "Input Only". Para o DHT11, é mais seguro usar um pino bidirecional.
+// Vou manter o 39, mas esteja ciente que pode ser a causa de leituras erradas no DHT.
+// Se tiver problemas com o DHT, tente GPIO 2, 4, 16, 17, etc.
+const int DHT_PIN = 15;    // Pino de Dados do DHT11 -> GPIO 39 do ESP32
+#define DHTTYPE DHT11     // Define o tipo de sensor DHT (DHT11 ou DHT22). Usamos DHT11.
+
+// Inicializa o objeto DHT com o pino e o tipo definidos
+DHT dht(DHT_PIN, DHTTYPE);
+
+// Variáveis globais para armazenar os valores dos sensores
+int distanceCm = 0;      // Distância em centímetros (HC-SR04)
+float temperatureC = 0.0; // Temperatura em Celsius (DHT11)
+float humidity = 0.0;     // Humidade relativa (DHT11)
+
+// Variáveis para controlar o tempo da atualização do sensor e da página
+unsigned long update_sensor_timer = 0; // Usado para controlar a leitura e a atualização da página
+const long updateInterval = 2000;      // Intervalo de 2 segundos (2000 milissegundos) para atualizar a página
+
+// Cria o objeto do servidor web na porta 80
+WebServer server(80);
+
+// --- Declaração de funções (Forward declarations) ---
+void handleRoot();
+
+// --- Funções de Leitura dos Sensores ---
+
+// Função para ler o sensor ultrassónico HC-SR04 e retornar a distância em cm
+long readUltrasonicSensorCm() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH, 20000); // 20ms timeout
+
+  if (duration == 0 || duration > 23529) { // ~400cm
+      return 400; // Out of range or error
+  }
+  int calculatedDistance = duration * 0.034 / 2;
+  if (calculatedDistance < 2) {
+      return 2;
+  }
+  return calculatedDistance;
+}
+
+// Função para ler o sensor DHT11
+void readDHT11Sensor() {
+  humidity = dht.readHumidity();
+  temperatureC = dht.readTemperature();
+
+  if (isnan(humidity) || isnan(temperatureC)) {
+    Serial.println("Erro ao ler do sensor DHT!");
+    humidity = 0.0;
+    temperatureC = 0.0;
+  }
+}
+
+// --- Handler para a URL raiz ("/") ---
+void handleRoot() {
+  const char* htmlTemplate = R"raw_html(
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">  <title>ESP32 Multi-Sensor Dashboard</title>
+<style>
+  html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}
+  h1 { color: #007bff; padding: 2vh;}
+  p { font-size: 24px; margin-top: 10px; margin-bottom: 5px; }
+  strong { color: #e74c3c; font-size: 36px; display: block; margin-top: 5px;}
+</style>
+<script>
+  // ESTA LINHA É A CHAVE PARA A PÁGINA RECARRGAR AUTOMATICAMENTE
+  // Faz com que o navegador solicite a página novamente a cada 2 segundos
+  setTimeout(function(){ location.reload(); }, 2000);
+</script>
+</head>
+<body>
+<h1>Diogo Otero ------- ESP32 Multi-Sensor Dashboard</h1>
+
+<p>Distância: <strong>%DISTANCE_VALUE% cm</strong></p>
+<p>Temperatura: <strong>%TEMP_VALUE% &deg;C</strong></p>
+<p>Humidade: <strong>%HUM_VALUE% %</strong></p>
+
+</body>
+</html>
+)raw_html";
+
+  String finalHtml = String(htmlTemplate);
+
+  finalHtml.replace("%DISTANCE_VALUE%", String(distanceCm));
+  finalHtml.replace("%TEMP_VALUE%", String(temperatureC, 1));
+  finalHtml.replace("%HUM_VALUE%", String(humidity, 1));
+
+  server.send(200, "text/html", finalHtml);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("\nIniciando ESP32 Web Server com Multi-Sensores...");
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  dht.begin();
+  Serial.println("Sensor DHT11 inicializado.");
+
+  Serial.print("Conectando ao WiFi ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi Conectado!");
+  Serial.print("Endereço IP: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", handleRoot);
+  server.begin();
+  Serial.println("Servidor Web HTTP iniciado.");
+
+  // Força uma primeira leitura de todos os sensores no início
+  distanceCm = readUltrasonicSensorCm();
+  readDHT11Sensor();
+  Serial.print("Valores iniciais: Distância = "); Serial.print(distanceCm);
+  Serial.print("cm, Temp = "); Serial.print(temperatureC);
+  Serial.print("°C, Hum = "); Serial.print(humidity); Serial.println("%");
+}
+
+void loop() {
+  server.handleClient();
+
+  unsigned long currentMillis = millis();
+  if (currentMillis - update_sensor_timer >= updateInterval) {
+    update_sensor_timer = currentMillis;
+
+    // Lê os novos valores de ambos os sensores
+    distanceCm = readUltrasonicSensorCm();
+    readDHT11Sensor();
+
+    Serial.print("Nova leitura: Distância = "); Serial.print(distanceCm);
+    Serial.print("cm, Temp = "); Serial.print(temperatureC);
+    Serial.print("°C, Hum = "); Serial.print(humidity); Serial.println("%");
+
+    // A chamada a handleRoot() aqui simplesmente prepara os dados mais recentes.
+    // A recarga VISUAL da página é feita pelo JavaScript no cliente.
+    handleRoot(); 
+  }
+}
