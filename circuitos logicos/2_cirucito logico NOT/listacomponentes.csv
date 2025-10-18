@@ -1,0 +1,7 @@
+﻿Name,Quantity,Component
+"D1",1,"Red LED"
+"S1",1," Pushbutton"
+"R1",1,"1 kΩ Resistor"
+"R2",1,"10 kΩ Resistor"
+"T1",1," NPN Transistor (BJT)"
+"P1",1,"5 , 5  Power Supply"

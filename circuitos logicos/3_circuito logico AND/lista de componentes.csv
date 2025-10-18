@@ -1,0 +1,7 @@
+﻿Name,Quantity,Component
+"D1",1,"Red LED"
+"R1",1,"1 kΩ Resistor"
+"R2, R3",2,"10 kΩ Resistor"
+"P1",1,"5 , 5  Power Supply"
+"T2, T1",2," NPN Transistor (BJT)"
+"S3, S1",2," Slideswitch"
