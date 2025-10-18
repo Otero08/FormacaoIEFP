@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercícioooo</title>
+    <style>
+        html {
+            font-family: Helvetica;
+            display: center;
+            margin: 30px auto;
+            text-align: center;
+        }
+        body {
+            background-image: url('https://www.atec.pt/images/stories/noticias/2013/Descentralizadas/Logo_IEFP_Horizontal_1_c.jpg'); /* Altere para o link real */
+            background-size: cover;
+            background-position: top center;
+            background-repeat: no-repeat;
+            margin: 20px;
+            padding: 0px;
+        }
+        .button {
+            background-color: rgb(213, 17, 17);
+            border: 3px solid black;
+            color: white;
+            padding: 16px 40px;
+            text-decoration: none;
+            font-size: 30px;
+            margin: 2px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease; /* Adicionado para uma transição suave */
+        }
+        .button2 {
+            background-color: rgb(54, 12, 205);
+        }
+    </style>
+</head>
+<body>
+    <h1>Diogo Otero ------ ESP32 Web Server</h1>
+    <p><a href="/26/on"><button class="button" id="button1">ON</button></a></p>
+    <p><a href="/27/on"><button class="button button2" id="button2">ON</button></a></p>
+</body>
+<script>
+    // Seleciona os botões pelo ID
+    const button1 = document.getElementById('button1');
+    const button2 = document.getElementById('button2');
+
+    // Função para mudar a cor de fundo ao passar o mouse
+    function changeBackgroundColor(event) {
+        // Verifica qual botão disparou o evento
+        if (event.target.id === 'button1') {
+            event.target.style.backgroundColor = 'rgb(255, 60, 60)'; // Cor mais clara para o botão vermelho
+        } else if (event.target.id === 'button2') {
+            event.target.style.backgroundColor = 'rgb(90, 100, 255)'; // Cor mais clara para o botão azul
+        }
+    }
+
+    // Função para restaurar a cor de fundo ao remover o mouse
+    function restoreBackgroundColor(event) {
+        if (event.target.id === 'button1') {
+            event.target.style.backgroundColor = 'rgb(210, 8, 8)'; // Volta à cor original do botão vermelho
+        } else if (event.target.id === 'button2') {
+            event.target.style.backgroundColor = 'rgb(54, 12, 205)'; // Volta à cor original do botão azul
+        }
+    }
+
+    // Adiciona os event listeners para 'mouseover' e 'mouseout'
+    if (button1) { // Verifica se o botão existe antes de adicionar o listener
+        button1.addEventListener('mouseover', changeBackgroundColor);
+        button1.addEventListener('mouseout', restoreBackgroundColor);
+    }
+
+    if (button2) { // Verifica se o botão existe antes de adicionar o listener
+        button2.addEventListener('mouseover', changeBackgroundColor);
+    
+        button2.addEventListener('mouseout', restoreBackgroundColor); // Use addEventListener
+    }
+</script>
+</html>
