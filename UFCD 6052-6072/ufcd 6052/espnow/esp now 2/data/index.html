@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configurar MAC do Receptor</title>
+<style>
+body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+input[type="text"] { width: 300px; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+input[type="submit"] { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+input[type="submit"]:hover { background-color: #45a049; }
+</style>
+</head>
+<body>
+<h1>Configurar MAC do Receptor ESP-NOW</h1>
+<form action="/submit_mac" method="post">
+  <label for="macAddress">Endereço MAC do Receptor (XX:XX:XX:XX:XX:XX):</label><br>
+  <input type="text" id="macAddress" name="macAddress" pattern="^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$" required><br>
+  <input type="submit" value="Salvar MAC e Reiniciar">
+</form>
+</body>
+</html>

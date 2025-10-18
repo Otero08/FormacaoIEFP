@@ -1,0 +1,455 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <ArduinoJson.h>
+
+// Substitua pelas suas credenciais de rede Wi-Fi
+const char* ssid = "Vodafone-ACD044";
+const char* password = "b9uJnxdvxJVugnCy";
+
+// Atribui variáveis de saída aos pinos GPIO para os LEDs
+const int output4 = 4;   // LED no GPIO 4
+const int output12 = 12; // LED no GPIO 12
+
+// --- Configuração de PWM (LED Control) ---
+const int freq = 5000;    // Frequência do PWM (Hz) - 5kHz é um bom valor
+const int resolution = 8; // Resolução do PWM (8 bits = 0-255 valores)
+                          // Para 8 bits, ledcWrite(channel, value) aceita valores de 0 a 255.
+const int ledChannel4 = 0;  // Canal LEDC para o GPIO 4
+const int ledChannel12 = 1; // Canal LEDC para o GPIO 12
+
+// --- Configuração do LDR ---
+const int LDR_PIN = 34;   // Pino GPIO para o LDR (entrada analógica). Ligado ao divisor de tensão.
+const int LDR_LIMIT = 2000; // Limite para a leitura do LDR (ajuste este valor!).
+                            // A leitura analógica do ESP32 vai de 0 (escuro) a 4095 (claro).
+                            // Ajuste LDR_LIMIT com base na sua luz ambiente e resistor.
+
+// Variável para armazenar a leitura atual do LDR
+int ldrValue = 0;
+
+// Variáveis para controlar o tempo da atualização da leitura do sensor LDR
+unsigned long lastLDRReadMillis = 0;
+const long ldrReadInterval = 500; // Ler o LDR a cada 500 milissegundos
+
+// --- Modo de Operação ---
+enum OperatingMode {
+  AUTOMATIC_MODE,
+  MANUAL_MODE
+};
+OperatingMode currentMode = AUTOMATIC_MODE; // Começa no modo automático por padrão
+
+// Variáveis para armazenar o brilho manual dos LEDs (0-255)
+int output4ManualBrightness = 0;
+int output12ManualBrightness = 0;
+
+// Cria um objeto do servidor web na porta 80
+WebServer server(80);
+
+// --- Funções Auxiliares ---
+
+// Função para ler o valor do LDR
+int readLDR() {
+  return analogRead(LDR_PIN);
+}
+
+// --- Handlers para Controlo Manual da Intensidade (Sliders/Caixas de Texto) ---
+void handleSetBrightness4() {
+  if (server.hasArg("value")) {
+    output4ManualBrightness = server.arg("value").toInt();
+    output4ManualBrightness = constrain(output4ManualBrightness, 0, 255);
+    ledcWrite(ledChannel4, output4ManualBrightness);
+    Serial.print("LED GPIO 4 (Brilho Escuro) definido para: "); Serial.println(output4ManualBrightness);
+  }
+  server.send(200, "text/plain", "OK");
+}
+
+void handleSetBrightness12() {
+  if (server.hasArg("value")) {
+    output12ManualBrightness = server.arg("value").toInt();
+    output12ManualBrightness = constrain(output12ManualBrightness, 0, 255);
+    ledcWrite(ledChannel12, output12ManualBrightness);
+    Serial.print("LED GPIO 12 (Brilho Claro) definido para: "); Serial.println(output12ManualBrightness);
+  }
+  server.send(200, "text/plain", "OK");
+}
+
+// --- Handlers para Mudar de Modo ---
+void handleAutomaticMode() {
+  currentMode = AUTOMATIC_MODE;
+  ledcWrite(ledChannel4, 0); // Desliga os LEDs ao mudar de modo
+  ledcWrite(ledChannel12, 0);
+  Serial.println("Modo alterado para: AUTOMÁTICO");
+  server.sendHeader("Location", "/"); // Redireciona para a página principal
+  server.send(303);
+}
+
+void handleManualMode() {
+  currentMode = MANUAL_MODE;
+  output4ManualBrightness = 0; // Reseta brilhos manuais
+  output12ManualBrightness = 0;
+  ledcWrite(ledChannel4, 0); // Desliga os LEDs ao mudar de modo
+  ledcWrite(ledChannel12, 0);
+  Serial.println("Modo alterado para: MANUAL");
+  server.sendHeader("Location", "/");
+  server.send(303);
+}
+
+// --- Rota: handleStatus() para retornar o estado em JSON ---
+void handleStatus() {
+  DynamicJsonDocument doc(256); // Tamanho suficiente para o JSON
+
+  doc["ldrValue"] = ldrValue;
+  doc["mode"] = (currentMode == AUTOMATIC_MODE) ? "automatic" : "manual";
+
+  // Adiciona o estado/brilho do GPIO 4
+  if (currentMode == AUTOMATIC_MODE) {
+    doc["gpio4_brightness"] = ledcRead(ledChannel4); // Lê o brilho atual do PWM
+    doc["gpio4_state"] = (ledcRead(ledChannel4) > 0) ? "LIGADO" : "DESLIGADO";
+  } else {
+    doc["gpio4_brightness"] = output4ManualBrightness; // Usa o brilho salvo para o modo manual
+    doc["gpio4_state"] = (output4ManualBrightness > 0) ? "LIGADO" : "DESLIGADO";
+  }
+
+  // Adiciona o estado/brilho do GPIO 12
+  if (currentMode == AUTOMATIC_MODE) {
+    doc["gpio12_brightness"] = ledcRead(ledChannel12);
+    doc["gpio12_state"] = (ledcRead(ledChannel12) > 0) ? "LIGADO" : "DESLIGADO";
+  } else {
+    doc["gpio12_brightness"] = output12ManualBrightness;
+    doc["gpio12_state"] = (output12ManualBrightness > 0) ? "LIGADO" : "DESLIGADO";
+  }
+
+  String jsonString;
+  serializeJson(doc, jsonString);
+
+  server.send(200, "application/json", jsonString);
+}
+
+
+// --- Função para lidar com a URL raiz ("/") e mostrar a interface ---
+void handleRoot() {
+  String html = R"raw_html(
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<link rel="icon" href="data:,">
+<title>ESP32 Web Server - Controlo de Iluminação</title>
+<style>
+  html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}
+  h1 { color: #007bff; padding: 2vh;}
+  p { font-size: 20px; margin-top: 10px; margin-bottom: 5px; }
+  strong { color: #e74c3c; font-size: 28px; display: block; margin-top: 5px;}
+  .state-on { color: #28a745; font-weight: bold; }
+  .state-off { color: #dc3545; font-weight: bold; }
+  .mode-button {
+    background-color: #007bff; /* Azul */
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 5px;
+  }
+  .mode-button.active {
+    background-color: #28a745; /* Verde quando ativo */
+  }
+  .manual-control-section {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin: 20px auto;
+    max-width: 400px;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+  }
+  .slider-label {
+    font-size: 18px;
+    margin-top: 15px;
+    margin-bottom: 5px;
+    display: block;
+  }
+  /* Estilo básico para o slider */
+  .slider {
+    -webkit-appearance: none;
+    width: 80%;
+    height: 15px;
+    border-radius: 5px;
+    background: #d3d3d3;
+    outline: none;
+    opacity: 0.7;
+    -webkit-transition: .2s;
+    transition: opacity .2s;
+  }
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: pointer;
+  }
+  .slider::-moz-range-thumb {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: pointer;
+  }
+  .brightness-input { /* Estilo para a caixa de texto */
+    width: 60px;
+    padding: 5px;
+    margin-left: 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    text-align: center;
+    font-size: 16px;
+  }
+</style>
+<script>
+  // Variável para controlar o debounce (compartilhada entre as chamadas)
+  var debounceTimeout;
+
+  // Função para enviar o valor de brilho (0-255) para o ESP32 via AJAX
+  function sendBrightness(pin, brightness255) {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        console.log("Brilho do LED " + pin + " (0-255) definido para: " + brightness255);
+        // Atualiza imediatamente o slider e o campo de texto no cliente
+        // para dar feedback visual instantâneo
+        document.getElementById('slider' + pin).value = brightness255;
+        document.getElementById('brightness' + pin).innerText = brightness255; // Valor 0-255
+        // Mapeia 0-255 para 0-100% para a caixa de texto
+        document.getElementById('brightnessInput' + pin).value = Math.round((brightness255 / 255) * 100);
+      }
+    };
+    var url = "/setBrightness" + pin + "?value=" + brightness255;
+    xhttp.open("GET", url, true);
+    xhttp.send();
+  }
+
+  // Função que será chamada com debounce ao digitar na caixa de texto
+  function debouncedHandleTextInputBrightness(pin) {
+    clearTimeout(debounceTimeout); // Limpa qualquer timeout anterior
+    debounceTimeout = setTimeout(function() { // Define um novo timeout
+      var inputElement = document.getElementById('brightnessInput' + pin);
+      var valuePercent = parseInt(inputElement.value);
+
+      // Validação: assegurar que é um número entre 0 e 100
+      if (isNaN(valuePercent) || valuePercent < 0 || valuePercent > 100) {
+        alert("Por favor, insira um valor entre 0 e 100%.");
+        // Reverte o valor do input para a última percentagem válida do slider
+        inputElement.value = Math.round((document.getElementById('slider' + pin).value / 255) * 100);
+        return;
+      }
+
+      // Mapeia 0-100% para 0-255
+      var brightness255 = Math.round((valuePercent / 100) * 255);
+      sendBrightness(pin, brightness255); // Envia o valor mapeado para o ESP32
+    }, 500); // 500 milissegundos de debounce
+  }
+
+  // Função para buscar e atualizar o estado do ESP32 via AJAX
+  function fetchStatus() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        try {
+          var status = JSON.parse(this.responseText);
+          // console.log("Status Recebido:", status);
+
+          // Atualiza a leitura do LDR
+          document.getElementById('ldrValueDisplay').innerText = status.ldrValue;
+
+          // Atualiza a exibição do modo e o conteúdo
+          document.querySelectorAll('.mode-button').forEach(btn => btn.classList.remove('active'));
+          if (status.mode === 'automatic') {
+            document.querySelector('a[href="/automatic"] button').classList.add('active');
+            document.getElementById('currentModeDisplay').innerText = "AUTOMÁTICO";
+            document.getElementById('currentModeDisplay').style.color = '#28a745';
+            document.getElementById('automaticContent').style.display = 'block';
+            document.getElementById('manualContent').style.display = 'none';
+
+            // Atualiza o estado dos LEDs no modo automático
+            document.getElementById('gpio4State').innerText = status.gpio4_state;
+            document.getElementById('gpio4State').className = 'state-' + (status.gpio4_brightness > 0 ? 'on' : 'off');
+            document.getElementById('gpio12State').innerText = status.gpio12_state;
+            document.getElementById('gpio12State').className = 'state-' + (status.gpio12_brightness > 0 ? 'on' : 'off');
+
+          } else { // manual
+            document.querySelector('a[href="/manual"] button').classList.add('active');
+            document.getElementById('currentModeDisplay').innerText = "MANUAL";
+            document.getElementById('currentModeDisplay').style.color = '#dc3545';
+            document.getElementById('automaticContent').style.display = 'none';
+            document.getElementById('manualContent').style.display = 'block';
+
+            // Atualiza os sliders e as caixas de texto no modo manual
+            // Esta atualização irá sobrepor o input do utilizador se o fetch for muito rápido
+            // Mas com 1 segundo de intervalo e debounce, deve funcionar bem
+            document.getElementById('slider4').value = status.gpio4_brightness;
+            document.getElementById('brightness4').innerText = status.gpio4_brightness;
+            document.getElementById('brightnessInput4').value = Math.round((status.gpio4_brightness / 255) * 100);
+
+            document.getElementById('slider12').value = status.gpio12_brightness;
+            document.getElementById('brightness12').innerText = status.gpio12_brightness;
+            document.getElementById('brightnessInput12').value = Math.round((status.gpio12_brightness / 255) * 100);
+          }
+        } catch (e) {
+          console.error("Erro ao analisar JSON ou atualizar DOM:", e);
+        }
+      }
+    };
+    xhttp.open("GET", "/status", true);
+    xhttp.send();
+  }
+
+  // Chama a função fetchStatus a cada 1 segundo (1000 ms) para atualizações contínuas
+  setInterval(fetchStatus, 1000);
+
+  // Garante que o estado inicial é carregado e os event listeners são adicionados
+  document.addEventListener('DOMContentLoaded', function() {
+    fetchStatus(); // Busca o estado inicial
+
+    // Adiciona event listeners para os campos de texto com debounce
+    document.getElementById('brightnessInput4').addEventListener('input', function() { // Usa 'input' para feedback imediato
+      debouncedHandleTextInputBrightness('4');
+    });
+    document.getElementById('brightnessInput12').addEventListener('input', function() { // Usa 'input' para feedback imediato
+      debouncedHandleTextInputBrightness('12');
+    });
+  });
+
+</script>
+</head>
+<body>
+<h1>ESP32 Controlo de Iluminação</h1>
+
+<div>
+  <a href="/automatic"><button class="mode-button">Modo Automático</button></a>
+  <a href="/manual"><button class="mode-button">Modo Manual</button></a>
+</div>
+
+<p>Modo Atual: <strong id="currentModeDisplay"></strong></p>
+<p>Leitura LDR: <strong id="ldrValueDisplay"></strong></p>
+<p>Limite LDR: <strong>%LDR_LIMIT_STATIC%</strong></p>
+
+
+<div id="automaticContent">
+  <p>GPIO 4 (LED Escuro): <strong id="gpio4State"></strong></p>
+  <p>GPIO 12 (LED Claro): <strong id="gpio12State"></strong></p>
+</div>
+
+<div id="manualContent" style="display:none;">
+  <div class="manual-control-section">
+    <p class="slider-label">Controlo LED GPIO 4 (LED Escuro):</p>
+    <input type="range" min="0" max="255" id="slider4" class="slider" oninput="sendBrightness('4', this.value)">
+    <p>Brilho (0-255): <span id="brightness4"></span></p>
+    <p>Brilho (%): <input type="text" id="brightnessInput4" class="brightness-input" value="" size="4" maxlength="3"></p>
+
+    <p class="slider-label">Controlo LED GPIO 12 (LED Claro):</p>
+    <input type="range" min="0" max="255" id="slider12" class="slider" oninput="sendBrightness('12', this.value)">
+    <p>Brilho (0-255): <span id="brightness12"></span></p>
+    <p>Brilho (%): <input type="text" id="brightnessInput12" class="brightness-input" value="" size="4" maxlength="3"></p>
+  </div>
+</div>
+
+</body>
+</html>
+)raw_html";
+
+  // Substituições iniciais que não mudarão via AJAX (apenas ao carregar a página inicial)
+  html.replace("%LDR_LIMIT_STATIC%", String(LDR_LIMIT));
+
+  // A classe 'active' para os botões de modo será definida pelo JavaScript (fetchStatus)
+  html.replace("%AUTO_ACTIVE%", "");
+  html.replace("%MANUAL_ACTIVE%", "");
+
+
+  server.send(200, "text/html", html);
+}
+
+// --- Função de Configuração (executada uma vez no início) ---
+void setup() {
+  Serial.begin(115200);
+  Serial.println("\nIniciando ESP32 Web Server com Controlo de Iluminação...");
+
+  // --- Configuração dos Canais PWM (LED Control) ---
+  ledcSetup(ledChannel4, freq, resolution);
+  ledcAttachPin(output4, ledChannel4);
+  ledcSetup(ledChannel12, freq, resolution);
+  ledcAttachPin(output12, ledChannel12);
+
+  ledcWrite(ledChannel4, 0); // Garante que os LEDs estão desligados no início
+  ledcWrite(ledChannel12, 0);
+
+  Serial.print("Conectando ao WiFi ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+
+  int attempts = 0;
+  const int maxAttempts = 5;
+
+  while (WiFi.status() != WL_CONNECTED && attempts < maxAttempts) {
+    delay(1000);
+    Serial.print(".");
+    attempts++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi Conectado!");
+    Serial.print("Endereço IP: ");
+    Serial.println(WiFi.localIP());
+
+    // Configura as rotas do servidor web
+    server.on("/", handleRoot);
+    server.on("/automatic", handleAutomaticMode);
+    server.on("/manual", handleManualMode);
+    server.on("/setBrightness4", handleSetBrightness4);
+    server.on("/setBrightness12", handleSetBrightness12);
+    server.on("/status", handleStatus); // Rota para retornar o estado em JSON
+
+    server.begin();
+    Serial.println("Servidor Web HTTP iniciado.");
+
+    ldrValue = readLDR(); // Força uma primeira leitura do LDR
+    Serial.print("Leitura LDR inicial: "); Serial.println(ldrValue);
+
+  } else {
+    Serial.println("\nNão foi possível estabelecer conexão Wi-Fi após 5 tentativas.");
+    Serial.println("Verifique as credenciais ou o alcance da rede.");
+  }
+}
+
+// --- Função Principal do Loop (executada repetidamente) ---
+void loop() {
+  if (WiFi.status() == WL_CONNECTED) {
+    server.handleClient();
+
+    if (currentMode == AUTOMATIC_MODE) {
+      unsigned long currentMillis = millis();
+      if (currentMillis - lastLDRReadMillis >= ldrReadInterval) {
+        lastLDRReadMillis = currentMillis;
+
+        ldrValue = readLDR();
+        // Serial.print("LDR Value (Auto Mode): "); // Descomente para depurar
+        // Serial.println(ldrValue);
+
+        int brightness4_auto = map(ldrValue, 0, LDR_LIMIT, 255, 0);
+        brightness4_auto = constrain(brightness4_auto, 0, 255);
+        ledcWrite(ledChannel4, brightness4_auto);
+
+        int brightness12_auto = map(ldrValue, LDR_LIMIT, 4095, 0, 255);
+        brightness12_auto = constrain(brightness12_auto, 0, 255);
+        ledcWrite(ledChannel12, brightness12_auto);
+
+        // Serial.print("LED 4 (Escuro) Brilho: "); Serial.println(brightness4_auto); // Descomente para depurar
+        // Serial.print("LED 12 (Claro) Brilho: "); Serial.println(brightness12_auto); // Descomente para depurar
+      }
+    }
+  }
+}

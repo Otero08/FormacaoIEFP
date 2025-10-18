@@ -1,0 +1,3 @@
+ -h (localhost) -t(topico) -p (porta)-m(mensagem) -v-d(para aparecer teto)
+
+que parametros o mosquito aceita (mosquito_sub -help)

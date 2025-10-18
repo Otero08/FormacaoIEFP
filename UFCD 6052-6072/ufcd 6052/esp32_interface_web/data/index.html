@@ -1,0 +1,52 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Monitorização ESP32</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f0f0f0; }
+    h2 { color: #333; }
+    .box { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h2>Sistema de Monitorização ESP32</h2>
+  <div class="box">
+    <p><strong>Luz Ambiente (LDR):</strong> <span id="ldr">--</span></p>
+    <p><strong>Temperatura (°C):</strong> <span id="temp">--</span></p>
+    <p><strong>LED:</strong> <span id="led">--</span></p>
+    <input type="range" min="0" max="255" value="128" id="ledControl">
+    <p><strong>Ventoinha:</strong> <span id="fan">--</span></p>
+    <input type="range" min="0" max="255" value="128" id="fanControl">
+  </div>
+<script>
+function atualizar() {
+  fetch('/dados')
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("ldr").innerText = data.ldr;
+      document.getElementById("temp").innerText = data.temp;
+      document.getElementById("led").innerText = data.led;
+      document.getElementById("fan").innerText = data.fan;
+    });
+}
+setInterval(atualizar, 5000);
+document.getElementById("ledControl").addEventListener("input", function() {
+  fetch("/set_led", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "value=" + this.value
+  });
+});
+document.getElementById("fanControl").addEventListener("input", function() {
+  fetch("/set_fan", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "value=" + this.value
+  });
+});
+atualizar();
+</script>
+</body>
+</html>

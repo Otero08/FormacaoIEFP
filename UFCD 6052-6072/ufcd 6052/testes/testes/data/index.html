@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Controle Manual/Automático ESP32</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f7fa;
+      color: #333;
+      max-width: 600px;
+      margin: auto;
+    }
+    h2, h3 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .box {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    label {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    input[type="range"] {
+      width: 100%;
+      margin: 5px 0 15px 0;
+    }
+    .switch {
+      margin-left: 10px;
+      position: relative;
+      display: inline-block;
+      width: 46px;
+      height: 24px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .sliderSwitch {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 24px;
+    }
+    .sliderSwitch:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .sliderSwitch {
+      background-color: #4CAF50;
+    }
+    input:checked + .sliderSwitch:before {
+      transform: translateX(22px);
+    }
+    .status {
+      font-size: 0.9em;
+      color: #555;
+      margin-bottom: 15px;
+    }
+    .mode-select {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .mode-select label {
+      font-weight: normal;
+      margin: 0 15px;
+      cursor: pointer;
+    }
+
+    /* Simulação sensores */
+    .teste-sensores {
+      padding: 15px;
+      background: #e8f0fe;
+      border: 2px solid #90b4ff;
+      border-radius: 10px;
+      margin-bottom: 25px;
+    }
+    .teste-sensores label {
+      font-weight: normal;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .teste-sensores span {
+      font-weight: bold;
+      color: #1a237e;
+    }
+
+    /* Termómetro vertical */
+    .termometro-container {
+      width: 60px;
+      height: 200px;
+      background: #ddd;
+      border-radius: 30px;
+      margin: 0 auto 15px auto;
+      position: relative;
+      box-shadow: inset 0 0 8px #aaa;
+    }
+    .termometro-bulbo {
+      width: 80px;
+      height: 80px;
+      background: #ff3e3e;
+      border-radius: 50%;
+      position: absolute;
+      bottom: -40px;
+      left: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 0 20px #ff3e3eaa;
+    }
+    .termometro-nivel {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background: linear-gradient(to top, #ff3e3e, #ff7777);
+      border-radius: 30px 30px 0 0;
+      transition: height 0.3s ease;
+    }
+    .termometro-label {
+      text-align: center;
+      font-weight: bold;
+      margin-top: 5px;
+      color: #b33;
+    }
+
+    /* Ícone Sol para luz ambiente */
+    .sol-container {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 15px auto;
+      position: relative;
+      filter: drop-shadow(0 0 3px #ffaa00aa);
+      transition: filter 0.3s ease;
+    }
+    .sol-circle {
+      width: 80px;
+      height: 80px;
+      background: #ffea00;
+      border-radius: 50%;
+      margin: 0 auto;
+      box-shadow: 0 0 20px #ffea0055;
+      transition: box-shadow 0.3s ease, background-color 0.3s ease;
+    }
+    .sol-rayos {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      width: 100px;
+      height: 100px;
+      transform: translateX(-50%);
+    }
+    .raio {
+      position: absolute;
+      width: 4px;
+      height: 20px;
+      background: #ffea00;
+      top: 0;
+      left: 50%;
+      transform-origin: center bottom;
+      box-shadow: 0 0 8px #ffea00aa;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+    }
+    /* 8 raios à volta do sol */
+    .raio:nth-child(1) { transform: translateX(-50%) rotate(0deg); top: 0; left: 50%; }
+    .raio:nth-child(2) { transform: translateX(-50%) rotate(45deg); top: 7px; left: 75%; }
+    .raio:nth-child(3) { transform: translateX(-50%) rotate(90deg); top: 50%; left: 90%; }
+    .raio:nth-child(4) { transform: translateX(-50%) rotate(135deg); top: 90%; left: 75%; }
+    .raio:nth-child(5) { transform: translateX(-50%) rotate(180deg); top: 100%; left: 50%; }
+    .raio:nth-child(6) { transform: translateX(-50%) rotate(225deg); top: 90%; left: 25%; }
+    .raio:nth-child(7) { transform: translateX(-50%) rotate(270deg); top: 50%; left: 10%; }
+    .raio:nth-child(8) { transform: translateX(-50%) rotate(315deg); top: 7px; left: 25%; }
+
+    /* Valores texto */
+    .valor-sensor {
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.1em;
+      margin-bottom: 15px;
+      color: #444;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h2>Controle Manual/Automático ESP32</h2>
+
+  <!-- Simulação sensores -->
+  <div class="teste-sensores">
+    <h3>Simulação de Sensores</h3>
+    <label for="tempTestRange">Temperatura (ºC): <span id="tempTestValue">25</span></label>
+    <input type="range" id="tempTestRange" min="0" max="50" value="25" step="1" />
+    
+    <label for="ldrTestRange">Luz (LDR 0-1023): <span id="ldrTestValue">512</span></label>
+    <input type="range" id="ldrTestRange" min="0" max="1023" value="512" step="1" />
+  </div>
+
+  <div class="mode-select">
+    <label>
+      <input type="radio" name="mode" id="modeAuto" value="auto" checked />
+      Automático
+    </label>
+    <label>
+      <input type="radio" name="mode" id="modeManual" value="manual" />
+      Manual
+    </label>
+  </div>
+
+  <div class="box" id="autoSettings">
+    <h3>Modo Automático</h3>
+    
+    <div class="valor-sensor">Temperatura: <span id="temp">--</span> ºC</div>
+    <div class="termometro-container" title="Termómetro">
+      <div class="termometro-nivel" id="termometroNivel" style="height:0;"></div>
+      <div class="termometro-bulbo"></div>
+    </div>
+    
+    <div class="valor-sensor">Luz Ambiente: <span id="ldr">--</span></div>
+    <div class="sol-container" title="Luz ambiente">
+      <div class="sol-rayos">
+        <div class="raio"></div>
+        <div class="raio"></div>
+        <div class="raio"></div>
+        <div class="raio"></div>
+        <div class="raio"></div>
+        <div class="raio"></div>
+        <div class="raio"></div>
+        <div class="raio"></div>
+      </div>
+      <div class="sol-circle" id="solCircle"></div>
+    </div>
+
+    <div>
+      <strong>Ventoinha:</strong> <span id="fanAutoIntensity">--</span>%
+    </div>
+    <div>
+      <strong>Luz (LED):</strong> <span id="ledAutoIntensity">--</span>%
+    </div>
+  </div>
+
+  <div class="box" id="manualSettings" style="display:none;">
+    <h3>Modo Manual</h3>
+    
+    <label for="fanSwitch">Ventoinha Ligada
+      <div class="switch">
+        <input type="checkbox" id="fanSwitch" />
+        <span class="sliderSwitch"></span>
+      </div>
+    </label>
+    <input type="range" id="fanSlider" min="0" max="100" value="0" disabled />
+    <div class="status" id="fanStatus">Intensidade: 0</div>
+    
+    <label for="ledSwitch">LED Ligado
+      <div class="switch">
+        <input type="checkbox" id="ledSwitch" />
+        <span class="sliderSwitch"></span>
+      </div>
+    </label>
+    <input type="range" id="ledSlider" min="0" max="100" value="0" disabled />
+    <div class="status" id="ledStatus">Intensidade: 0</div>
+  </div>
+
+  <script>
+    const tempTestRange = document.getElementById('tempTestRange');
+    const ldrTestRange = document.getElementById('ldrTestRange');
+    const tempDisplay = document.getElementById('temp');
+    const ldrDisplay = document.getElementById('ldr');
+    const termometroNivel = document.getElementById('termometroNivel');
+    const solCircle = document.getElementById('solCircle');
+
+    const modeAutoRadio = document.getElementById('modeAuto');
+    const modeManualRadio = document.getElementById('modeManual');
+    const autoSettings = document.getElementById('autoSettings');
+    const manualSettings = document.getElementById('manualSettings');
+
+    const fanSwitch = document.getElementById('fanSwitch');
+    const fanSlider = document.getElementById('fanSlider');
+    const fanStatus = document.getElementById('fanStatus');
+
+    const ledSwitch = document.getElementById('ledSwitch');
+    const ledSlider = document.getElementById('ledSlider');
+    const ledStatus = document.getElementById('ledStatus');
+
+    const fanAutoIntensitySpan = document.getElementById('fanAutoIntensity');
+    const ledAutoIntensitySpan = document.getElementById('ledAutoIntensity');
+
+    let prevFanIntensity = 0;
+    let prevLedIntensity = 0;
+
+    // Atualiza o texto e o slider de simulação
+    tempTestRange.addEventListener('input', () => {
+      document.getElementById('tempTestValue').textContent = tempTestRange.value;
+    });
+
+    ldrTestRange.addEventListener('input', () => {
+      document.getElementById('ldrTestValue').textContent = ldrTestRange.value;
+    });
+
+    // Muda entre modo manual e automático
+    function updateMode() {
+      if (modeAutoRadio.checked) {
+        autoSettings.style.display = 'block';
+        manualSettings.style.display = 'none';
+      } else {
+        autoSettings.style.display = 'none';
+        manualSettings.style.display = 'block';
+      }
+    }
+    modeAutoRadio.addEventListener('change', updateMode);
+    modeManualRadio.addEventListener('change', updateMode);
+    updateMode();
+
+    // Atualiza a visualização do termómetro (0 a 50ºC)
+    function updateTermometro(temp) {
+      const alturaMax = 200; // px container
+      const altura = (temp / 50) * alturaMax;
+      termometroNivel.style.height = altura + 'px';
+    }
+
+    // Atualiza cor e sombra do sol conforme luz ambiente (ldr 0-1023)
+    function updateSol(ldr) {
+      // Quanto maior o valor, mais claro e brilhante o sol
+      const brilho = ldr / 1023;
+      const corBase = 234; // amarelo no HSL (aprox)
+      const cor = `hsl(${corBase}, 100%, ${50 + brilho * 30}%)`;
+      solCircle.style.backgroundColor = cor;
+      solCircle.style.boxShadow = `0 0 ${10 + brilho * 30}px ${cor}`;
+    }
+
+    // Atualiza interface e simulação dos valores automáticos
+    function atualizar() {
+      // Valores simulados dos sensores
+      const temp = parseInt(tempTestRange.value);
+      const ldr = parseInt(ldrTestRange.value);
+
+      tempDisplay.textContent = temp;
+      ldrDisplay.textContent = ldr;
+
+      updateTermometro(temp);
+      updateSol(ldr);
+
+      if (modeAutoRadio.checked) {
+        // Lógica automática para ventoinha e led
+        // Exemplo simples: ventoinha aumenta com temperatura, led diminui com luz ambiente
+        const fanIntensity = Math.min(Math.max(Math.round(((temp - 20) / 30) * 100), 0), 100);
+        const ledIntensity = Math.min(Math.max(Math.round((1023 - ldr) / 1023 * 100), 0), 100);
+
+        fanAutoIntensitySpan.textContent = fanIntensity + '%';
+        ledAutoIntensitySpan.textContent = ledIntensity + '%';
+      } else {
+        fanAutoIntensitySpan.textContent = '--';
+        ledAutoIntensitySpan.textContent = '--';
+      }
+    }
+
+    // Controlo manual: liga/desliga e slider fan
+    fanSwitch.addEventListener('change', () => {
+      if (fanSwitch.checked) {
+        fanSlider.disabled = false;
+        if (fanSlider.value == 0) fanSlider.value = 50;
+      } else {
+        fanSlider.disabled = true;
+        fanSlider.value = 0;
+      }
+      prevFanIntensity = parseInt(fanSlider.value);
+      fanStatus.textContent = 'Intensidade: ' + fanSlider.value;
+    });
+
+    fanSlider.addEventListener('input', () => {
+      prevFanIntensity = parseInt(fanSlider.value);
+      if (prevFanIntensity > 0 && !fanSwitch.checked) {
+        fanSwitch.checked = true;
+        fanSlider.disabled = false;
+      } else if (prevFanIntensity === 0 && fanSwitch.checked) {
+        fanSwitch.checked = false;
+        fanSlider.disabled = true;
+      }
+      fanStatus.textContent = 'Intensidade: ' + prevFanIntensity;
+    });
+
+    // Controlo manual: liga/desliga e slider led
+    ledSwitch.addEventListener('change', () => {
+      if (ledSwitch.checked) {
+        ledSlider.disabled = false;
+        if (ledSlider.value == 0) ledSlider.value = 50;
+      } else {
+        ledSlider.disabled = true;
+        ledSlider.value = 0;
+      }
+      prevLedIntensity = parseInt(ledSlider.value);
+      ledStatus.textContent = 'Intensidade: ' + ledSlider.value;
+    });
+
+    ledSlider.addEventListener('input', () => {
+      prevLedIntensity = parseInt(ledSlider.value);
+      if (prevLedIntensity > 0 && !ledSwitch.checked) {
+        ledSwitch.checked = true;
+        ledSlider.disabled = false;
+      } else if (prevLedIntensity === 0 && ledSwitch.checked) {
+        ledSwitch.checked = false;
+        ledSlider.disabled = true;
+      }
+      ledStatus.textContent = 'Intensidade: ' + prevLedIntensity;
+    });
+
+    // Atualiza interface de forma contínua
+    setInterval(atualizar, 300);
+
+    // Atualiza imediatamente ao carregar
+    atualizar();
+  </script>
+
+</body>
+</html>
